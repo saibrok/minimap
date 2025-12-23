@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+    <title>ScrollRead Minimap (MVP)</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      }
+
+      .controls {
+        display: grid;
+        gap: 8px;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+
+      .controls textarea {
+        width: 100%;
+        min-height: 120px;
+        padding: 12px;
+        font-size: 16px;
+        box-sizing: border-box;
+        resize: vertical;
+      }
+
+      .controls button {
+        width: fit-content;
+        padding: 10px 14px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      .wrap {
+        height: 50vh;
+        display: grid;
+        grid-template-columns: 1fr 56px;
+        gap: 10px;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+
+      /* Твой контейнер со скроллом текста */
+      .text {
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 16px;
+        overflow: auto;
+        line-height: 1.5;
+        font-size: 18px;
+        white-space: pre-wrap;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .text::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+      }
+
+      /* Миникарта */
+      .minimap {
+        position: relative;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        overflow: hidden;
+        user-select: none;
+        cursor: pointer;
+        background: #f7f7f7;
+      }
+
+      .minimap-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        pointer-events: none;
+      }
+
+      /* Viewport: текущая видимая область текста */
+      .minimap-viewport {
+        position: absolute;
+        left: 4px;
+        right: 4px;
+        top: 0;
+        height: 20px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.1);
+        outline: 1px solid rgba(0, 0, 0, 0.18);
+        cursor: grab;
+        z-index: 2;
+      }
+      .minimap-viewport.dragging {
+        cursor: grabbing;
+      }
+
+      /* (опционально) подсветка при наведении */
+      .minimap:hover .minimap-viewport {
+        background: rgba(0, 0, 0, 0.14);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="controls">
+      <textarea
+        id="source-text"
+        placeholder="Вставь текст сюда"
+      ></textarea>
+      <button id="apply-text">Добавить</button>
+    </div>
+    <div class="wrap">
+      <div
+        id="text"
+        class="text"
+      >
+      </div>
+
+      <div
+        id="minimap"
+        class="minimap"
+        aria-label="Minimap"
+      >
+        <canvas
+          id="minimap-canvas"
+          class="minimap-canvas"
+        ></canvas>
+        <div
+          id="viewport"
+          class="minimap-viewport"
+          title="Перетащи или кликни для прокрутки"
+        ></div>
+      </div>
+    </div>
+
+    <script>
+      /**
+       * Minimap для любого scroll-контейнера.
+       * - отображает видимую область (viewport)
+       * - клик по minimap → скролл
+       * - drag viewport → скролл
+       */
+      function attachScrollMinimap(scrollEl, minimapEl, viewportEl, canvasEl) {
+        let isDragging = false;
+        let dragOffsetY = 0;
+        let mo;
+
+        function renderMinimapCanvas() {
+          if (!canvasEl) return;
+          const ctx = canvasEl.getContext('2d');
+          if (!ctx) return;
+
+          const w = minimapEl.clientWidth;
+          const h = minimapEl.clientHeight;
+          if (w === 0 || h === 0) return;
+
+          const dpr = window.devicePixelRatio || 1;
+          canvasEl.width = Math.max(1, Math.floor(w * dpr));
+          canvasEl.height = Math.max(1, Math.floor(h * dpr));
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+          ctx.clearRect(0, 0, w, h);
+
+          const style = getComputedStyle(scrollEl);
+          const lineHeight = parseFloat(style.lineHeight) || 18;
+          const paddingTop = parseFloat(style.paddingTop) || 0;
+          const paddingLeft = parseFloat(style.paddingLeft) || 0;
+          const paddingRight = parseFloat(style.paddingRight) || 0;
+          const scrollHeight = scrollEl.scrollHeight || 1;
+          const scale = h / scrollHeight;
+          const contentWidth = Math.max(1, scrollEl.clientWidth - paddingLeft - paddingRight);
+
+          const font = style.font || `${style.fontSize} ${style.fontFamily}`;
+          ctx.font = font;
+          ctx.textBaseline = 'top';
+
+          function measure(text) {
+            return ctx.measureText(text).width;
+          }
+
+          function pushWrappedLineWidths(lineText, widths) {
+            if (lineText === '') {
+              widths.push(0);
+              return;
+            }
+
+            const tokens = lineText.match(/(\s+|[^\s]+)/g) || [];
+            let currentWidth = 0;
+
+            for (const token of tokens) {
+              const tokenWidth = measure(token);
+
+              if (currentWidth === 0 && /^\s+$/.test(token)) {
+                continue;
+              }
+
+              if (currentWidth + tokenWidth <= contentWidth || currentWidth === 0) {
+                currentWidth += tokenWidth;
+                continue;
+              }
+
+              widths.push(currentWidth);
+              currentWidth = 0;
+
+              if (/^\s+$/.test(token)) {
+                continue;
+              }
+
+              if (tokenWidth <= contentWidth) {
+                currentWidth = tokenWidth;
+                continue;
+              }
+
+              // Длинное слово — режем по символам
+              for (const ch of token) {
+                const chWidth = measure(ch);
+                if (currentWidth + chWidth > contentWidth && currentWidth > 0) {
+                  widths.push(currentWidth);
+                  currentWidth = 0;
+                }
+                currentWidth += chWidth;
+              }
+            }
+
+            widths.push(currentWidth);
+          }
+
+          const textValue = scrollEl.textContent || '';
+          const rawLines = textValue.replace(/\r/g, '').split('\n');
+          const lineWidths = [];
+
+          for (const line of rawLines) {
+            pushWrappedLineWidths(line, lineWidths);
+          }
+
+          if (lineWidths.length === 0) {
+            lineWidths.push(0);
+          }
+
+          const lineThickness = Math.max(1, Math.floor(lineHeight * scale * 0.35));
+
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+          const leftPad = 4;
+          const usableW = Math.max(1, w - leftPad - 4);
+
+          for (let i = 0; i < lineWidths.length; i += 1) {
+            const y = Math.floor((paddingTop + i * lineHeight) * scale);
+            if (y > h) break;
+            const ratio = Math.min(1, lineWidths[i] / contentWidth);
+            const lineW = Math.floor(usableW * ratio);
+            if (lineW > 0) {
+              ctx.fillRect(leftPad, y, lineW, lineThickness);
+            }
+          }
+        }
+
+        // Защита от деления на 0
+        function getMetrics() {
+          const scrollHeight = scrollEl.scrollHeight;
+          const clientHeight = scrollEl.clientHeight;
+          const mmHeight = minimapEl.clientHeight;
+
+          const maxScrollTop = Math.max(0, scrollHeight - clientHeight);
+          const scale = mmHeight / (scrollHeight || 1); // px minimap на 1px контента
+
+          // Высота viewport должна отражать долю видимой части
+          // Минимальная высота — чтобы было удобно хватать мышью
+          const viewportHeight = Math.max(24, clientHeight * scale);
+
+          // Максимальный top у viewport в minimap
+          const maxViewportTop = Math.max(0, mmHeight - viewportHeight);
+
+          return { scrollHeight, clientHeight, mmHeight, maxScrollTop, scale, viewportHeight, maxViewportTop };
+        }
+
+        function syncFromScroll() {
+          const { maxScrollTop, scale, viewportHeight, maxViewportTop } = getMetrics();
+
+          viewportEl.style.height = viewportHeight + 'px';
+
+          if (maxScrollTop === 0) {
+            viewportEl.style.top = '0px';
+            return;
+          }
+
+          const rawTop = scrollEl.scrollTop * scale;
+          const top = Math.min(maxViewportTop, Math.max(0, rawTop));
+          viewportEl.style.top = top + 'px';
+        }
+
+        function scrollToMinimapY(minimapY) {
+          const { mmHeight, scrollHeight, clientHeight, maxScrollTop, viewportHeight } = getMetrics();
+
+          // Хотим, чтобы клик попадал "в центр" viewport
+          const y = minimapY - viewportHeight / 2;
+
+          const clampedY = Math.min(mmHeight - viewportHeight, Math.max(0, y));
+          const ratio = mmHeight - viewportHeight === 0 ? 0 : clampedY / (mmHeight - viewportHeight);
+
+          scrollEl.scrollTop = ratio * maxScrollTop;
+          syncFromScroll();
+        }
+
+        function getOffsetY(e) {
+          const rect = minimapEl.getBoundingClientRect();
+          return e.clientY - rect.top;
+        }
+
+        // События
+        scrollEl.addEventListener('scroll', () => {
+          if (!isDragging) syncFromScroll();
+        });
+
+        // Клик по minimap (кроме viewport) — прыгнуть
+        minimapEl.addEventListener('mousedown', (e) => {
+          // Если нажали на viewport — это drag, обработаем отдельно
+          if (e.target === viewportEl) return;
+          scrollToMinimapY(getOffsetY(e));
+        });
+
+        // Drag viewport
+        viewportEl.addEventListener('mousedown', (e) => {
+          isDragging = true;
+          viewportEl.classList.add('dragging');
+
+          const rect = viewportEl.getBoundingClientRect();
+          dragOffsetY = e.clientY - rect.top;
+
+          e.preventDefault();
+          e.stopPropagation();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+          if (!isDragging) return;
+
+          const rect = minimapEl.getBoundingClientRect();
+          const minimapY = e.clientY - rect.top - dragOffsetY + viewportEl.offsetHeight / 2;
+          scrollToMinimapY(minimapY);
+        });
+
+        window.addEventListener('mouseup', () => {
+          if (!isDragging) return;
+          isDragging = false;
+          viewportEl.classList.remove('dragging');
+        });
+
+        // Ресайз: пересчитать
+        const ro = new ResizeObserver(() => {
+          renderMinimapCanvas();
+          syncFromScroll();
+        });
+        ro.observe(scrollEl);
+        ro.observe(minimapEl);
+
+        // Первичная синхронизация
+        renderMinimapCanvas();
+        syncFromScroll();
+
+        if (window.MutationObserver) {
+          mo = new MutationObserver(() => {
+            renderMinimapCanvas();
+            syncFromScroll();
+          });
+          mo.observe(scrollEl, { childList: true, subtree: true, characterData: true });
+        }
+
+        // Возврат "деструктора" (если надо будет отключать)
+        return () => {
+          ro.disconnect();
+          if (mo) mo.disconnect();
+        };
+      }
+
+      // Подключаем
+      const text = document.getElementById('text');
+      const minimap = document.getElementById('minimap');
+      const viewport = document.getElementById('viewport');
+      const minimapCanvas = document.getElementById('minimap-canvas');
+
+      attachScrollMinimap(text, minimap, viewport, minimapCanvas);
+
+      const sourceText = document.getElementById('source-text');
+      const applyText = document.getElementById('apply-text');
+
+      applyText.addEventListener('click', () => {
+        text.textContent = sourceText.value || '';
+      });
+    </script>
+  </body>
+</html>
