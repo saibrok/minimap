@@ -5,10 +5,35 @@
       @apply="applyText"
     />
 
+    <div class="settings">
+      <label class="settings-row">
+        <span>Размер шрифта: {{ fontSize }}px</span>
+        <input
+          v-model.number="fontSize"
+          type="range"
+          min="10"
+          max="140"
+          step="1"
+        />
+      </label>
+      <label class="settings-row">
+        <span>Padding inline: {{ paddingInline }}px</span>
+        <input
+          v-model.number="paddingInline"
+          type="range"
+          min="0"
+          max="500"
+          step="2"
+        />
+      </label>
+    </div>
+
     <div class="wrap">
       <TextPanel
         ref="textPanelRef"
         :text="displayText"
+        :font-size="fontSize"
+        :padding-inline="paddingInline"
       />
     </div>
   </div>
@@ -40,6 +65,17 @@ const displayText = ref('');
 const textPanelRef = ref(null);
 
 /**
+ * Настройки визуального текста.
+ * @type {import('vue').Ref<number>}
+ */
+const fontSize = ref(18);
+/**
+ * Горизонтальные отступы текста.
+ * @type {import('vue').Ref<number>}
+ */
+const paddingInline = ref(16);
+
+/**
  * Копируем текст из textarea в отображаемый блок.
  */
 function applyText() {
@@ -55,6 +91,25 @@ function applyText() {
   padding: 16px;
   max-height: 100vh;
   grid-template-rows: 300px 1fr;
+}
+
+.settings {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #2a3140;
+  border-radius: 6px;
+  background: #10141b;
+}
+
+.settings-row {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.settings-row input[type='range'] {
+  width: 100%;
 }
 
 .wrap {

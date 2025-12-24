@@ -110,6 +110,9 @@ export class MinimapController {
     this.renderToken = 0;
     // ResizeObserver для перерасчета.
     this.resizeObserver = null;
+    // Координаты для расчета drag без скачков.
+    this.dragStartPointerY = 0;
+    this.dragStartViewportTop = 0;
 
     // Привязываем this к обработчикам.
     this.handleScroll = this.handleScroll.bind(this);
@@ -150,6 +153,21 @@ export class MinimapController {
    * Снимает обработчики и освобождает ресурсы.
    */
   destroy() {
+    // Если было активное перетаскивание — освобождаем захват.
+    if (this.isDragging && this.activePointerId !== null) {
+      try {
+        this.viewportEl.releasePointerCapture(this.activePointerId);
+      } catch (error) {
+        // Игнорируем ошибки, если захват уже снят браузером.
+      }
+    }
+    // Сбрасываем состояние drag.
+    this.isDragging = false;
+    this.activePointerId = null;
+    this.dragStartPointerY = 0;
+    this.dragStartViewportTop = 0;
+    this.viewportEl.classList.remove('dragging');
+
     // Снимаем обработчики скролла/кликов/drag.
     this.scrollEl.removeEventListener('scroll', this.handleScroll);
     this.minimapEl.removeEventListener('pointerdown', this.handleMinimapPointerDown);
@@ -203,6 +221,8 @@ export class MinimapController {
     // Считаем смещение внутри viewport.
     const rect = this.viewportEl.getBoundingClientRect();
     this.dragOffsetY = event.clientY - rect.top;
+    this.dragStartPointerY = event.clientY;
+    this.dragStartViewportTop = rect.top;
 
     // Отключаем стандартные действия браузера.
     event.preventDefault();
@@ -219,9 +239,11 @@ export class MinimapController {
     // Игнорируем чужие указатели.
     if (this.activePointerId !== null && event.pointerId !== this.activePointerId) return;
 
-    // Преобразуем координату указателя в координату миникарты.
+    // Преобразуем координату указателя в координату миникарты без скачков.
     const rect = this.minimapEl.getBoundingClientRect();
-    const minimapY = event.clientY - rect.top - this.dragOffsetY + this.viewportEl.offsetHeight / 2;
+    const deltaY = event.clientY - this.dragStartPointerY;
+    const viewportTop = this.dragStartViewportTop - rect.top + deltaY;
+    const minimapY = viewportTop + this.dragOffsetY;
     // Скроллим текст.
     this.scrollToMinimapY(minimapY);
   }
@@ -239,6 +261,8 @@ export class MinimapController {
     // Сбрасываем состояние drag.
     this.isDragging = false;
     this.activePointerId = null;
+    this.dragStartPointerY = 0;
+    this.dragStartViewportTop = 0;
     // Возвращаем обычный курсор.
     this.viewportEl.classList.remove('dragging');
   }
@@ -283,7 +307,9 @@ export class MinimapController {
 
     // Грузим SVG в Image, чтобы нарисовать в canvas.
     const img = new Image();
-    img.onload = this.handleImageLoad.bind(this, ctx, w, h, sourceWidth, sourceHeight, token, img);
+    img.onload = () => {
+      this.handleImageLoad(ctx, w, h, sourceWidth, sourceHeight, token, img);
+    };
     img.src = dataUrl;
   }
 

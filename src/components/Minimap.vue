@@ -42,6 +42,14 @@ const props = defineProps({
     type: String,
     required: true,
   },
+  /**
+   * Настройки, влияющие на внешний вид текста.
+   * @type {{fontSize: number, paddingInline: number}}
+   */
+  settings: {
+    type: Object,
+    required: true,
+  },
 });
 
 /**
@@ -114,6 +122,7 @@ onUnmounted(() => {
 watch(() => getScrollElement(), handleScrollTargetChange);
 
 watch(() => props.content, handleContentChange, { flush: 'post' });
+watch(() => props.settings, handleContentChange, { flush: 'post' });
 
 /**
  * Пересоздаем контроллер, если изменился DOM-элемент скролла.
