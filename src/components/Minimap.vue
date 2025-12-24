@@ -153,7 +153,6 @@ async function handleContentChange() {
   overflow: hidden;
   user-select: none;
   cursor: pointer;
-  background: #0f131a;
   height: 100%;
   width: 100%;
   touch-action: none;
@@ -162,8 +161,6 @@ async function handleContentChange() {
 .minimap-canvas {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
   display: block;
   pointer-events: none;
 }
@@ -172,19 +169,17 @@ async function handleContentChange() {
   position: absolute;
   left: 0;
   right: 0;
-  top: 0;
-  height: 20px;
   background: rgba(255, 255, 255, 0.08);
   cursor: grab;
   z-index: 2;
 }
 
-.minimap:hover .minimap-viewport {
+.minimap-viewport:hover {
   background: rgba(255, 255, 255, 0.12);
 }
 
-.minimap .minimap-viewport.dragging {
+.minimap-viewport.dragging {
   cursor: grabbing;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(0, 150, 0, 0.12);
 }
 </style>

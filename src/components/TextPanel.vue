@@ -85,13 +85,14 @@ defineExpose({ rootEl });
 
 <style scoped>
 .panel {
+  border: 1px solid #2a3140;
+  border-radius: 4px;
+  overflow: hidden;
   position: relative;
   max-height: 50vh;
 }
 
 .text {
-  border: 1px solid #2a3140;
-  border-radius: 4px;
   padding: 16px;
   overflow: auto;
   line-height: 1.5;
@@ -104,6 +105,7 @@ defineExpose({ rootEl });
   box-sizing: border-box;
   background: #10141b;
   color: #e6e6e6;
+  min-height: 300px;
 }
 
 .text::-webkit-scrollbar {
@@ -117,7 +119,5 @@ defineExpose({ rootEl });
   right: 0;
   bottom: 0;
   width: 120px;
-  border-left: 1px solid #2a3140;
-  background: #0f131a;
 }
 </style>
