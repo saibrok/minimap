@@ -9,12 +9,6 @@
       <TextPanel
         ref="textPanelRef"
         :text="displayText"
-        @ready="setScrollElement"
-      />
-
-      <Minimap
-        :scroll-el="scrollElement"
-        :content="displayText"
       />
     </div>
   </div>
@@ -26,7 +20,6 @@ import { ref } from 'vue';
 // Импортируем компоненты интерфейса.
 import TextInput from './components/TextInput.vue';
 import TextPanel from './components/TextPanel.vue';
-import Minimap from './components/Minimap.vue';
 
 /**
  * Текст в textarea (черновик, который можно править).
@@ -47,25 +40,11 @@ const displayText = ref('');
 const textPanelRef = ref(null);
 
 /**
- * DOM-элемент скроллируемого блока.
- * @type {import('vue').Ref<HTMLElement | null>}
- */
-const scrollElement = ref(null);
-
-/**
  * Копируем текст из textarea в отображаемый блок.
  */
 function applyText() {
   // Кладем текст в блок для отображения.
   displayText.value = sourceText.value;
-}
-
-/**
- * Получаем DOM-элемент от компонента TextPanel.
- * @param {HTMLElement} element
- */
-function setScrollElement(element) {
-  scrollElement.value = element;
 }
 </script>
 
@@ -80,7 +59,6 @@ function setScrollElement(element) {
 
 .wrap {
   display: grid;
-  grid-template-columns: 1fr 64px;
-  gap: 12px;
+  max-height: 50vh;
 }
 </style>

@@ -27,13 +27,12 @@ import { MinimapController } from '../composables/useMinimap.js';
  */
 const props = defineProps({
   /**
-   * DOM-элемент скроллируемого блока.
-   * @type {HTMLElement | null}
+   * DOM-элемент скроллируемого блока или ref на него.
+   * @type {HTMLElement | import('vue').Ref<HTMLElement | null>}
    */
   scrollEl: {
     type: Object,
-    required: false,
-    default: null,
+    required: true,
   },
   /**
    * Текст, чтобы перерендеривать скриншот при изменениях.
@@ -64,7 +63,7 @@ let controller = null;
  */
 function getScrollElement() {
   // Берем DOM-элемент напрямую из пропса.
-  return props.scrollEl || null;
+  return props.scrollEl?.value ?? props.scrollEl ?? null;
 }
 
 /**
@@ -112,16 +111,9 @@ onUnmounted(() => {
   destroyController();
 });
 
-watch(
-  () => getScrollElement(),
-  handleScrollTargetChange
-);
+watch(() => getScrollElement(), handleScrollTargetChange);
 
-watch(
-  () => props.content,
-  handleContentChange,
-  { flush: 'post' }
-);
+watch(() => props.content, handleContentChange, { flush: 'post' });
 
 /**
  * Пересоздаем контроллер, если изменился DOM-элемент скролла.
@@ -149,14 +141,12 @@ async function handleContentChange() {
 
 <style scoped>
 .minimap {
-  position: relative;
-  border: 1px solid #ddd;
-  border-radius: 4px;
   overflow: hidden;
   user-select: none;
   cursor: pointer;
   background: #f7f7f7;
   height: 100%;
+  width: 100%;
   touch-action: none;
 }
 
@@ -175,18 +165,17 @@ async function handleContentChange() {
   right: 0;
   top: 0;
   height: 20px;
-  border-radius: 6px;
   background: rgba(0, 0, 0, 0.1);
-  outline: 1px solid rgba(0, 0, 0, 0.18);
   cursor: grab;
   z-index: 2;
 }
 
-.minimap-viewport.dragging {
-  cursor: grabbing;
-}
-
 .minimap:hover .minimap-viewport {
   background: rgba(0, 0, 0, 0.14);
+}
+
+.minimap .minimap-viewport.dragging {
+  cursor: grabbing;
+  background: rgba(0, 150, 0, 0.1);
 }
 </style>
