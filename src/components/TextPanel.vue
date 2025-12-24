@@ -1,5 +1,8 @@
 <template>
-  <div class="panel">
+  <div
+    class="panel"
+    :style="panelStyles"
+  >
     <div
       ref="rootEl"
       class="text"
@@ -59,13 +62,24 @@ const props = defineProps({
  */
 const rootEl = ref(null);
 
+const MINIMAP_WIDTH = 120;
+
+/**
+ * Переменные для размеров миникарты.
+ * @type {import('vue').ComputedRef<Record<string, string>>}
+ */
+const panelStyles = computed(() => ({
+  '--minimap-width': `${MINIMAP_WIDTH}px`,
+}));
+
 /**
  * Инлайн-стили для текста.
  * @type {import('vue').ComputedRef<Record<string, string>>}
  */
 const textStyles = computed(() => ({
   fontSize: `${props.fontSize}px`,
-  paddingInline: `${props.paddingInline}px`,
+  paddingLeft: `${props.paddingInline}px`,
+  paddingRight: `calc(${props.paddingInline}px + var(--minimap-width))`,
 }));
 
 /**
@@ -118,6 +132,6 @@ defineExpose({ rootEl });
   top: 0;
   right: 0;
   bottom: 0;
-  width: 120px;
+  width: var(--minimap-width);
 }
 </style>

@@ -156,11 +156,12 @@ async function handleContentChange() {
   height: 100%;
   width: 100%;
   touch-action: none;
+  border-left: 1px solid #2a3140;
 }
 
 .minimap-canvas {
   position: absolute;
-  inset: 0;
+
   display: block;
   pointer-events: none;
 }
