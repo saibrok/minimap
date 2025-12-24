@@ -54,7 +54,7 @@ defineExpose({ rootEl });
 }
 
 .text {
-  border: 1px solid #ddd;
+  border: 1px solid #2a3140;
   border-radius: 4px;
   padding: 16px;
   overflow: auto;
@@ -66,6 +66,8 @@ defineExpose({ rootEl });
   -webkit-overflow-scrolling: touch;
   height: 100%;
   box-sizing: border-box;
+  background: #10141b;
+  color: #e6e6e6;
 }
 
 .text::-webkit-scrollbar {
@@ -79,5 +81,7 @@ defineExpose({ rootEl });
   right: 0;
   bottom: 0;
   width: 120px;
+  border-left: 1px solid #2a3140;
+  background: #0f131a;
 }
 </style>

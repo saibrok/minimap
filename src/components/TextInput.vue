@@ -63,6 +63,10 @@ function onApply() {
   font-size: 16px;
   box-sizing: border-box;
   resize: vertical;
+  background: #141821;
+  color: #e6e6e6;
+  border: 1px solid #2a3140;
+  border-radius: 6px;
 }
 
 .controls button {
@@ -70,5 +74,9 @@ function onApply() {
   padding: 10px 14px;
   font-size: 16px;
   cursor: pointer;
+  background: #1e2532;
+  color: #e6e6e6;
+  border: 1px solid #2a3140;
+  border-radius: 6px;
 }
 </style>
